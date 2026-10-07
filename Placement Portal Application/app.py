@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 from typing import Optional
 from functools import wraps
@@ -33,7 +34,9 @@ def allowed_file(filename: str) -> bool:
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = "change-this-secret-key"
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB max upload
@@ -57,9 +60,19 @@ def create_app() -> Flask:
 
 def seed_default_admin() -> None:
     if User.query.filter_by(role="admin").first() is None:
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com").strip().lower()
+        admin_password = os.environ.get("ADMIN_PASSWORD")
+
+        if not admin_password:
+            admin_password = secrets.token_urlsafe(16)
+            print("\nInitial admin account created:")
+            print(f"  Email: {admin_email}")
+            print(f"  Password: {admin_password}")
+            print("Set ADMIN_PASSWORD in the environment for a stable credential.\n")
+
         admin = User(
-            email="admin@example.com",
-            password_hash=generate_password_hash("admin123"),
+            email=admin_email,
+            password_hash=generate_password_hash(admin_password),
             role="admin",
         )
         db.session.add(admin)
@@ -70,7 +83,7 @@ def get_current_user() -> Optional[User]:
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
 
 
 def login_required(view_func):
@@ -188,6 +201,14 @@ def register_routes(app: Flask) -> None:
                 grad_year_val = int(graduation_year)
             except ValueError:
                 flash("Please enter valid numeric values for CGPA and graduation year.", "danger")
+                return render_template("auth/register_student.html", form=request.form)
+
+            if not 0 <= cgpa_val <= 10:
+                flash("CGPA must be between 0 and 10.", "danger")
+                return render_template("auth/register_student.html", form=request.form)
+
+            if not 2000 <= grad_year_val <= 2100:
+                flash("Please enter a valid graduation year.", "danger")
                 return render_template("auth/register_student.html", form=request.form)
 
             # Handle resume upload
@@ -467,6 +488,14 @@ def register_routes(app: Flask) -> None:
                 flash("Please enter valid numeric values for CGPA and graduation year.", "danger")
                 return render_template("admin/edit_student.html", student=student, form=request.form)
 
+            if not 0 <= cgpa_val <= 10:
+                flash("CGPA must be between 0 and 10.", "danger")
+                return render_template("admin/edit_student.html", student=student, form=request.form)
+
+            if not 2000 <= grad_year_val <= 2100:
+                flash("Please enter a valid graduation year.", "danger")
+                return render_template("admin/edit_student.html", student=student, form=request.form)
+
             student.name = name
             student.department = department
             student.cgpa = cgpa_val
@@ -619,6 +648,10 @@ def register_routes(app: Flask) -> None:
                 flash("Please enter a valid minimum CGPA.", "danger")
                 return render_template("company/job_form.html", form=request.form)
 
+            if not 0 <= min_cgpa_val <= 10:
+                flash("Minimum CGPA must be between 0 and 10.", "danger")
+                return render_template("company/job_form.html", form=request.form)
+
             deadline_value = None
             if deadline_raw:
                 try:
@@ -672,6 +705,10 @@ def register_routes(app: Flask) -> None:
                 min_cgpa_val = float(min_cgpa)
             except ValueError:
                 flash("Please enter a valid minimum CGPA.", "danger")
+                return render_template("company/job_edit.html", job=job, form=request.form)
+
+            if not 0 <= min_cgpa_val <= 10:
+                flash("Minimum CGPA must be between 0 and 10.", "danger")
                 return render_template("company/job_edit.html", job=job, form=request.form)
 
             deadline_value = None
@@ -752,11 +789,13 @@ def register_routes(app: Flask) -> None:
             return redirect(url_for("company_job_applications", job_id=application.job_id))
         application.status = status
 
-        # If status is 'placed', create a Placement record
+        # Keep the Placement record synchronized with the application status.
         if status == "placed":
             if not application.placement:
                 placement = Placement(application_id=application.id)
                 db.session.add(placement)
+        elif application.placement:
+            db.session.delete(application.placement)
 
         db.session.commit()
         flash(f"Application status updated to {status}.", "success")
@@ -766,7 +805,22 @@ def register_routes(app: Flask) -> None:
     @login_required
     @role_required("company")
     def view_student_profile(student_id: int):
+        user = get_current_user()
+        company = user.company_profile
         student = StudentProfile.query.get_or_404(student_id)
+
+        has_application = (
+            Application.query
+            .join(Job, Application.job_id == Job.id)
+            .filter(
+                Application.student_id == student.id,
+                Job.company_id == company.id,
+            )
+            .first()
+        )
+        if not has_application:
+            abort(403)
+
         return render_template("company/student_profile.html", student=student)
 
     # ──────────────────────────────────────────────
@@ -793,6 +847,7 @@ def register_routes(app: Flask) -> None:
             Job.query.filter(
                 Job.status == "approved",
                 Job.min_cgpa <= student.cgpa,
+                db.or_(Job.application_deadline.is_(None), Job.application_deadline >= date.today()),
                 ~Job.id.in_(applied_job_ids) if applied_job_ids else True,
             )
             .order_by(Job.created_at.desc())
@@ -865,7 +920,11 @@ def register_routes(app: Flask) -> None:
         user = get_current_user()
         student = user.student_profile
         q = request.args.get("q", "").strip()
-        query = Job.query.filter(Job.status == "approved", Job.min_cgpa <= student.cgpa)
+        query = Job.query.filter(
+            Job.status == "approved",
+            Job.min_cgpa <= student.cgpa,
+            db.or_(Job.application_deadline.is_(None), Job.application_deadline >= date.today()),
+        )
         if q:
             like = f"%{q}%"
             query = query.filter(
@@ -894,6 +953,10 @@ def register_routes(app: Flask) -> None:
             flash("This job is not open for applications.", "warning")
             return redirect(url_for("list_jobs"))
 
+        if job.application_deadline and job.application_deadline < date.today():
+            flash("The application deadline for this job has passed.", "warning")
+            return redirect(url_for("list_jobs"))
+
         if student.cgpa < job.min_cgpa:
             flash("You are not eligible for this job based on CGPA.", "danger")
             return redirect(url_for("list_jobs"))
@@ -914,6 +977,31 @@ def register_routes(app: Flask) -> None:
     @app.route("/uploads/resumes/<filename>")
     @login_required
     def download_resume(filename):
+        user = get_current_user()
+        student = StudentProfile.query.filter_by(resume_filename=filename).first_or_404()
+
+        if user.role == "admin":
+            return send_from_directory(str(UPLOAD_FOLDER), filename)
+
+        if user.role == "student":
+            if student.user_id != user.id:
+                abort(403)
+        elif user.role == "company":
+            company = user.company_profile
+            has_application = (
+                Application.query
+                .join(Job, Application.job_id == Job.id)
+                .filter(
+                    Application.student_id == student.id,
+                    Job.company_id == company.id,
+                )
+                .first()
+            )
+            if not has_application:
+                abort(403)
+        else:
+            abort(403)
+
         return send_from_directory(str(UPLOAD_FOLDER), filename)
 
 
@@ -921,4 +1009,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1")
