@@ -1,195 +1,153 @@
-# Placement Portal Application
+# Placement Portal
 
-A clean and modular Placement Portal System built using Flask, offering dedicated role-based dashboards for Admins, Companies, and Students.
-The system manages the entire campus placement workflow — from company registration and job posting to student applications and placement tracking.
+A compact role-based placement management web application built with **Python, Flask, SQLAlchemy, SQLite, Jinja2, and Bootstrap 5**.
 
----
+The application models a complete campus-placement workflow across three user roles:
 
-## Features
+- **Admin** — manages users, companies, placement drives, approvals, and application records
+- **Company** — maintains its profile, creates placement drives, reviews applicants, and updates application status
+- **Student** — maintains an academic profile, browses eligible drives, applies to jobs, and tracks application progress
 
-### Admin
-- Pre-seeded admin account (no registration needed)
-- Dashboard with summary statistics (students, companies, jobs, applications)
-- Approve, reject, edit, blacklist, un-blacklist, and delete companies
-- Edit, blacklist, un-blacklist, and delete students
-- Approve, reject, and close placement drives
-- View all applications across the portal
-- Search students by name, roll number, or phone
-- Search companies by name, contact person, or industry
+## What it demonstrates
 
-### Company
-- Register and await admin approval before posting jobs
-- Update company profile (name, industry, website, contact details)
-- Create, edit, close, and delete placement drives
-- Set minimum CGPA eligibility for each drive
-- View applicants for each drive
-- Update application status (Applied → Shortlisted → Interview → Selected → Rejected → Placed)
-- View student profiles and download resumes
+- Session-based authentication with password hashing
+- Role-based access control with reusable decorators
+- Relational database design with SQLAlchemy ORM
+- Company and placement-drive approval workflows
+- CGPA-based eligibility filtering
+- Application lifecycle tracking
+- Resume upload and controlled resume access
+- Search across students, companies, and placement drives
+- Database-level prevention of duplicate applications
+- Server-side validation and business-rule enforcement
+- Responsive server-rendered UI with Jinja2 and Bootstrap 5
 
-### Student
-- Register with academic details, skills, and resume upload
-- Update profile and re-upload resume anytime
-- Browse approved placement drives (auto-filtered by CGPA eligibility)
-- Search jobs by company name, position, or skills/description
-- Apply to eligible drives (duplicate applications prevented)
-- Dashboard showing available drives, applied jobs, and status notifications
-- View full application history with real-time status updates
+## Application flow
 
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.10+, Flask |
-| ORM | SQLAlchemy (Flask-SQLAlchemy) |
-| Database | SQLite |
-| Templating | Jinja2 |
-| Frontend | Bootstrap 5 |
-| Auth | Session-based with Werkzeug password hashing |
-
----
-
-## Installation Guide
-
-### 1. Create Virtual Environment
-```bash
-python -m venv venv
+```text
+Company Registration
+        │
+        ▼
+Admin Approval
+        │
+        ▼
+Placement Drive
+        │
+        ▼
+Admin Approval
+        │
+        ▼
+Eligible Students
+        │
+        ▼
+Application
+        │
+        ▼
+Applied → Shortlisted → Interview → Selected → Placed
 ```
 
-### 2. Activate Environment
+## Database design
+
+The application uses six relational entities:
+
+| Entity | Purpose |
+|---|---|
+| User | Authentication and role information |
+| StudentProfile | Academic and personal student data |
+| CompanyProfile | Company profile and approval state |
+| Job | Placement-drive details and eligibility rules |
+| Application | Student applications and status |
+| Placement | Confirmed placement records |
+
+Key relationships include company-to-job, job-to-application, student-to-application, and application-to-placement.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python, Flask |
+| ORM | Flask-SQLAlchemy / SQLAlchemy |
+| Database | SQLite |
+| Templates | Jinja2 |
+| Frontend | Bootstrap 5, custom CSS |
+| Authentication | Flask sessions + Werkzeug password hashing |
+
+## Run locally
+
+### 1. Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it:
 
 **Windows**
 ```bash
-venv\Scripts\activate
+.venv\Scripts\activate
 ```
 
-**Mac/Linux**
+**macOS / Linux**
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
-### 3. Install Dependencies
+### 2. Install dependencies
+
 ```bash
-pip install -r requirements.txt
+pip install -r "Placement Portal Application/requirements.txt"
 ```
 
-### 4. Run the Application
-```bash
-python app.py
-```
+### 3. Configure the initial admin
 
-The database is automatically created on first run with a generated admin account.
-
-The system will be available at:
-**http://127.0.0.1:5000**
-
----
-
-## Default Login Credentials
-
-### Admin
-The first admin account is created automatically on first run.
-
-Set these environment variables before starting the application for a predictable
-admin credential:
+For local development, set:
 
 ```text
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=choose-a-strong-password
 ```
 
-If `ADMIN_PASSWORD` is not provided, the application generates a one-time random
-password and prints it to the console during first-time initialization.
+On first launch, if `ADMIN_PASSWORD` is omitted, the application generates a random password and prints it to the console.
 
-### Companies
-- Register through the company registration page
-- Login is enabled only after admin approval
+### 4. Start the application
 
-### Students
-- Register through the student registration page
-
----
-
-## Project Structure
-
+```bash
+cd "Placement Portal Application"
+python app.py
 ```
-Placement-Portal/
-├── app.py                          # Application entry point & all routes
-├── models.py                       # SQLAlchemy models (6 tables)
-├── requirements.txt                # Python dependencies
-├── placement_portal.db             # SQLite database (auto-created)
+
+The application runs locally on:
+
+```text
+http://127.0.0.1:5000
+```
+
+The SQLite database is created automatically on first run.
+
+## Project structure
+
+```text
+Placement Portal Application/
+├── app.py
+├── models.py
+├── requirements.txt
 ├── static/
-│   ├── css/
-│   │   └── styles.css              # Custom Bootstrap theme
-│   └── uploads/
-│       └── resumes/                # Student resume uploads
-├── templates/
-│   ├── base.html                   # Base layout with navbar
-│   ├── index.html                  # Landing page with login
-│   ├── auth/
-│   │   ├── login.html              # Login page
-│   │   ├── register_student.html   # Student registration
-│   │   └── register_company.html   # Company registration
-│   ├── admin/
-│   │   ├── dashboard.html          # Admin summary dashboard
-│   │   ├── companies.html          # Manage companies
-│   │   ├── students.html           # Manage students
-│   │   ├── drives.html             # Manage placement drives
-│   │   ├── applications.html       # View all applications
-│   │   ├── edit_student.html       # Edit student profile
-│   │   └── edit_company.html       # Edit company profile
-│   ├── company/
-│   │   ├── dashboard.html          # Company job listings
-│   │   ├── profile.html            # Edit company profile
-│   │   ├── job_form.html           # Create new drive
-│   │   ├── job_edit.html           # Edit existing drive
-│   │   ├── applications.html       # View applicants
-│   │   └── student_profile.html    # View student details
-│   └── student/
-│       ├── dashboard.html          # Student dashboard
-│       ├── profile.html            # Edit student profile
-│       └── jobs.html               # Browse & apply to jobs
+│   └── css/
+│       └── styles.css
+└── templates/
+    ├── base.html
+    ├── index.html
+    ├── auth/
+    ├── admin/
+    ├── company/
+    └── student/
 ```
-
----
-
-## Database Schema
-
-| Table | Description |
-|-------|-------------|
-| `users` | Authentication (email, password hash, role) |
-| `students` | Student profiles (name, roll number, CGPA, skills, resume) |
-| `companies` | Company profiles (name, industry, approval/blacklist status) |
-| `jobs` | Placement drives (title, CTC, min CGPA, status, deadline) |
-| `applications` | Student job applications (status tracking) |
-| `placements` | Confirmed placement records |
-
----
-
-## Key Design Decisions
-
-- **No JavaScript for core functionality** — all features work with pure server-side rendering
-- **HTML5 form validation** — all forms use native browser validation
-- **Backend validation** — all inputs validated server-side as well
-- **Role-based access control** — custom `@login_required` and `@role_required` decorators
-- **Duplicate prevention** — unique constraints at both DB and application level
-- **CGPA-based filtering** — students only see drives they're eligible for
-- **Resume upload** — supports PDF, DOC, DOCX (max 5 MB)
-
----
 
 ## Notes
 
-- All UI pages use a consistent Bootstrap 5 theme with responsive design
-- Strict role separation ensures secure access across admin, company, and student dashboards
-- Flash messages provide real-time feedback for all user actions
-- Blacklisted students cannot log in; blacklisted companies lose approval
-- Companies must be approved by admin before they can post placement drives
-- Placement records are automatically created when a company marks an application as "Placed"
+The project is intentionally kept as a lightweight server-rendered application rather than a production-scale service. It is best viewed as a supporting software-engineering project demonstrating backend development, relational modelling, authentication, and business-rule implementation.
+
+The database and uploaded resumes are runtime data and are excluded from version control.
 
 ---
-
-## License
-
-This project is intended for academic and learning purposes.
+**Author:** Vihaan Bhambhani
