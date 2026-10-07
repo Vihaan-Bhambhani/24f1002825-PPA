@@ -79,7 +79,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The database is automatically created on first run with a pre-seeded admin account.
+The database is automatically created on first run with a generated admin account.
 
 The system will be available at:
 **http://127.0.0.1:5000**
@@ -89,8 +89,18 @@ The system will be available at:
 ## Default Login Credentials
 
 ### Admin
-- **Email:** `admin@example.com`
-- **Password:** `admin123`
+The first admin account is created automatically on first run.
+
+Set these environment variables before starting the application for a predictable
+admin credential:
+
+```text
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=choose-a-strong-password
+```
+
+If `ADMIN_PASSWORD` is not provided, the application generates a one-time random
+password and prints it to the console during first-time initialization.
 
 ### Companies
 - Register through the company registration page
