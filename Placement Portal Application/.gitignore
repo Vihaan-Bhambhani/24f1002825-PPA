@@ -9,3 +9,4 @@ static/uploads/
 dist/
 build/
 .env
+instance/
