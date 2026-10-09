@@ -1,0 +1,74 @@
+// Placement Portal — DBML source based on the current SQLAlchemy models.
+// Paste into https://dbdiagram.io to render/export the ER diagram.
+
+Table users {
+  id integer [pk, increment]
+  email varchar(120) [not null, unique]
+  password_hash varchar(255) [not null]
+  role varchar(20) [not null, note: 'admin, company, student']
+}
+
+Table students {
+  id integer [pk, increment]
+  user_id integer [not null, unique]
+  name varchar(120) [not null]
+  roll_number varchar(20) [not null, unique]
+  department varchar(80) [not null]
+  cgpa float [not null]
+  graduation_year integer [not null]
+  phone varchar(20)
+  skills varchar(500)
+  resume_filename varchar(255)
+  blacklisted boolean [not null, default: false]
+}
+
+Table companies {
+  id integer [pk, increment]
+  user_id integer [not null, unique]
+  name varchar(150) [not null, unique]
+  website varchar(255)
+  contact_person varchar(120)
+  contact_email varchar(120)
+  industry varchar(120)
+  approved boolean [not null, default: false]
+  blacklisted boolean [not null, default: false]
+}
+
+Table jobs {
+  id integer [pk, increment]
+  company_id integer [not null]
+  title varchar(150) [not null]
+  location varchar(120)
+  ctc varchar(80)
+  description text
+  min_cgpa float [not null, default: 0.0]
+  application_deadline date
+  status varchar(20) [not null, default: 'pending', note: 'pending, approved, rejected, closed']
+  created_at datetime [not null]
+}
+
+Table applications {
+  id integer [pk, increment]
+  job_id integer [not null]
+  student_id integer [not null]
+  status varchar(20) [not null, default: 'applied', note: 'applied, shortlisted, interview, selected, rejected, placed']
+  applied_at datetime [not null]
+  updated_at datetime [not null]
+
+  indexes {
+    (job_id, student_id) [unique, name: 'uq_application_job_student']
+  }
+}
+
+Table placements {
+  id integer [pk, increment]
+  application_id integer [not null, unique]
+  placed_at datetime [not null]
+}
+
+Ref: students.user_id - users.id
+Ref: companies.user_id - users.id
+Ref: jobs.company_id > companies.id
+Ref: applications.job_id > jobs.id
+Ref: applications.student_id > students.id
+Ref: placements.application_id - applications.id
