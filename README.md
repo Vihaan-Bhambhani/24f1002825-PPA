@@ -147,7 +147,7 @@ Placement Portal Application/
 
 The project is intentionally kept as a lightweight server-rendered application rather than a production-scale service. It is best viewed as a supporting software-engineering project demonstrating backend development, relational modelling, authentication, and business-rule implementation.
 
-The database and uploaded resumes are runtime data and are excluded from version control.
+The SQLite database and resume files are runtime data and are excluded from version control. Resume files are stored under `instance/uploads/resumes/`, outside Flask's publicly served `static/` directory. This is a local/demo project, not a production-ready system; it does not yet include CSRF protection or content-based file inspection.
 
 ---
 **Author:** Vihaan Bhambhani
