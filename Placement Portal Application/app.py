@@ -24,7 +24,7 @@ from models import Application, CompanyProfile, Job, Placement, StudentProfile, 
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "placement_portal.db"
-UPLOAD_FOLDER = BASE_DIR / "static" / "uploads" / "resumes"
+UPLOAD_FOLDER = BASE_DIR / "instance" / "uploads" / "resumes"
 ALLOWED_EXTENSIONS = {"pdf", "doc", "docx"}
 
 
