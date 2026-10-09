@@ -46,6 +46,12 @@ Application
 Applied → Shortlisted → Interview → Selected → Placed
 ```
 
+## Entity-Relationship Diagram
+
+The diagram below reflects the current SQLAlchemy model definitions. The editable DBML source is available at [`docs/er-diagram.dbml`](docs/er-diagram.dbml).
+
+![Placement Portal Entity-Relationship Diagram](docs/images/er-diagram.svg)
+
 ## Database design
 
 The application uses six relational entities:
